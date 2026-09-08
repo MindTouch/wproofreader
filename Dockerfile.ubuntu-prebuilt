@@ -46,6 +46,23 @@ RUN sed -i '/<Languages[^>]*>/,/<\/Languages>/{//!d}' ${WPR_APP_SERVER_DIR}/AppS
 
 RUN perl ${WPR_APP_SERVER_DIR}/install_languages.pl ${WPR_APP_SERVER_DIR}/AppServerX.xml "${WPR_AI_MODELS}" "${WPR_LANGUAGES}" "${WPR_WSC_SERVICE_FILES_PATH}"
 
+# When WPR_AI_MODELS is empty, remove neural model files and disable AI in config.
+# install_languages.pl treats empty string as default (installs models 1,2), so this
+# post-install cleanup is the reliable way to strip them.
+RUN if [ -z "${WPR_AI_MODELS}" ]; then \
+        rm -rf ${WPR_APP_SERVER_DIR}/autocomplete/neural/ \
+               ${WPR_APP_SERVER_DIR}/grammar/neural/ && \
+        sed -i \
+            -e '/<AIModels>/,/<\/AIModels>/d' \
+            -e 's/\(<Neural[^>]*Enabled="\)true"/\1false"/g' \
+            -e 's/\(<Autocomplete[^>]*\)Enabled="true"/\1Enabled="false"/g' \
+            -e '/Name="ai_lt_hs1"/s/Default="true"//' \
+            -e '/Name="ai_lt_hs1"/s/Enabled="true"/Enabled="false"/' \
+            -e '/Name="ai_lt"/s/Enabled="true"/Enabled="false"/' \
+            -e '/Name="ai"/s/Enabled="true"/Enabled="false"/' \
+            ${WPR_APP_SERVER_DIR}/AppServerX.xml; \
+    fi
+
 RUN if [ ! -z "${WPR_LICENSE_TICKET_ID}" ]; then \
         sh ${WPR_APP_SERVER_DIR}/activateLicense.sh ${WPR_LICENSE_TICKET_ID} -y; \
     fi;
